@@ -1,0 +1,68 @@
+*conflict3.txt*   Highlight diff3-style conflicts
+
+==============================================================================
+CONTENTS                                                 *conflict3-contents*
+
+    1.Introduction.....................................|conflict3|
+    2.Setup............................................|conflict3-setup|
+    3.Commands.........................................|conflict3-commands|
+    4.Highlight groups.................................|conflict3-highlights|
+
+
+==============================================================================
+INTRODUCTION                                                      *conflict3*
+
+conflict3 is a collection of tools for resolving merge conflicts produced by
+revision control systems. Currently it defines commands for highlighting parts
+of a conflict that have changed.
+
+conflict3 does not directly interact with a revision control system. Instead,
+it operates on a file containing diff3-style conflict markers.
+
+In this document, the three section in a diff3-style conflict are called
+"local", "base" and "remote", from top to bottom.
+
+==============================================================================
+SETUP                                                       *conflict3-setup*
+
+In order to use conflict3 with your revision control system,  you need to
+configure your revision control system to present conflicts in the diff3 style.
+
+If you are a git user, you can do so with the following command:
+
+git config --global merge.conflictstyle diff3
+
+
+==============================================================================
+COMMANDS                                                 *conflict3-commands*
+
+:Conflict3Highlight                                     *:Conflict3Highlight*
+                        Highlight changes in the conflict containing the cursor,
+                        or the next conflict if there is none. See
+                        |conflict3-highlights| for a list of highlight groups
+                        used.
+
+:Conflict3Clear                                             *:Conflict3Clear*
+                        Clear all highlights in the current window.
+
+==============================================================================
+HIGHLIGHT GROUPS                                       *conflict3-highlights*
+
+                                                          *hl-Conflict3Local*
+Conflict3Local          Text that is only present in the "local" version.
+
+                                                         *hl-Conflict3Remote*
+Conflict3Remote         Text that is only present in the "remote" version.
+
+                                                       *hl-Conflict3LocalDel*
+Conflict3LocalDel       Text that is deleted in the "local" version. Defaults
+                        to |hl-Conflict3Local|
+
+                                                      *hl-Conflict3RemoteDel*
+Conflict3RemoteDel      Text that is deleted in the "remote" version. Defaults
+                        to |hl-Conflict3Remote|
+                                                           *hl-Conflict3Both*
+Conflict3Both           Text that is removed in the both versions.
+
+
+ vim:tw=78:ts=8:ft=help:norl:

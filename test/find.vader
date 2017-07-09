@@ -1,0 +1,13 @@
+Given:
+  cauliflower
+  <<<<<<< HEAD
+  peas
+  potatoes
+  ||||||| merged common ancestors
+  peas
+  =======
+  >>>>>>> topic
+  tomatoes
+
+Execute(find_conflict works):
+  AssertEqual [2, 5, 7, 8], conflict3#find_conflict()
