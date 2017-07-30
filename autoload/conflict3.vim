@@ -18,402 +18,12 @@ if !hlexists('Conflict3RemoteDel')
   highlight link Conflict3RemoteDel Conflict3Remote
 endif
 
-" Skew heaps
-"
-" A heap takes one of the two forms:
-"
-" [] - empty heap
-" [left, right, prio, val] - non-empty heap
-
-function! conflict3#heap_empty()
-  return []
-endfunction
-
-function! conflict3#heap_merge(a, b)
-  let a = a:a
-  let b = a:b
-  if len(a) == 0
-    return b
-  endif
-  if len(b) == 0
-    return a
-  endif
-
-  if a[2] > b[2]
-    let [a, b] = [b, a]
-  endif
-
-  return [conflict3#heap_merge(a[1], b), a[0], a[2], a[3]]
-endfunction
-
-" Insert an item v with the priority p to the heap h.
-function! conflict3#heap_insert(h, p, v)
-  return conflict3#heap_merge(a:h, [[], [], a:p, a:v])
-endfunction
-
-" Take the item with the lowest priority. Returns [newheap, prio, val]. The
-" heap must be non-empty
-function! conflict3#heap_pop(h)
-  return [conflict3#heap_merge(a:h[0], a:h[1]), a:h[2], a:h[3]]
-endfunction
-
-" Is the heap empty?
-function! conflict3#heap_null(h)
-  return len(a:h) == 0
-endfunction
-
-let s:infinity = 10000000
-
-" Diffs
-"
-" A diff between two arrays shows a minimal way to transform one array into
-" the other, with 'add', 'remove' and 'modify' operations.
-"
-" A diff is represented with an array, much like an output from `diff -u`.
-" The items are one of the following:
-"
-" 0 - represents an element that is only in the left source
-" 1 - represents an element that is only in the right source
-" other - represents an element that is shared, possibly with a modification.
-"    The detail of the modification may be encoded in the value
-
-" Compute a diff of two arrays. Returns [diff, cost].
-" cost_fn(i, j) should return an increasing airhtmetic sequence whose final
-" value is the cost of turning x[i] into y[j].
-function! s:diff(x_len, y_len, cost_fn)
-  " Dijkstra's algorithm for the shortest path problem.
-  let h = conflict3#heap_insert(conflict3#heap_empty(), 0, [0, 0, []])
-  " far[k+y_len] is the largest i such that (i, i+k) has been visited.
-  let far = repeat([-1], a:x_len + a:y_len + 1)
-  let iter = 0
-
-  while !conflict3#heap_null(h)
-    let [h, cost, info] = conflict3#heap_pop(h)
-    let [x_i, y_i, path] = info
-    let key = x_i - y_i + a:y_len
-    if x_i <= far[key]
-      "echo 'diff: throwing away ' . string(cost) . ': best[' . key . '] = ' . string(best[key])
-      continue
-    endif
-
-    let iter += 1
-
-    while x_i < a:x_len && y_i < a:y_len
-      let diag_cost = a:cost_fn(x_i, y_i)
-      if 0 < diag_cost
-        let h = conflict3#heap_insert(h, cost + diag_cost, [x_i + 1, y_i + 1, [2, path]])
-        break
-      endif
-      let x_i += 1
-      let y_i += 1
-      let path = [2, path]
-    endwhile
-
-    let far[key] = x_i
-
-    if x_i == a:x_len && y_i == a:y_len
-      " Reached the goal. Return a diff.
-      let diff = []
-      while 0 < len(path)
-        let [c, path] = path
-        call insert(diff, c)
-      endwhile
-
-      "echo 'diff: ' . iter . ' iterations (max ' . ((a:x_len+1) * (a:y_len+1)) . ')'
-      return diff
-    endif
-    let d = x_i - y_i
-    if x_i < a:x_len
-      let newcost = d < 0 ? cost : cost + 2
-      let h = conflict3#heap_insert(h, newcost, [x_i + 1, y_i, [0, path]])
-    endif
-    if y_i < a:y_len
-      let newcost = d > 0 ? cost : cost + 2
-      let h = conflict3#heap_insert(h, newcost, [x_i, y_i + 1, [1, path]])
-    endif
-  endwhile
-
-  throw "diff: destination unreachable"
-endfunction
-
-" Create a diff that solely consists of deletions.
-function! s:removal_diff(diff)
-  let i = 0
-  let out = []
-  while i < len(a:diff)
-    if !s:eq(1, a:diff[i])
-      call add(out, 0)
-    endif
-    let i += 1
-  endwhile
-  return out
-endfunction
-
-function! conflict3#line_diff(x, y)
-  return s:diff(len(a:x), len(a:y), { a, b -> a:x[a] == a:y[b] ? 0 : s:infinity})
-endfunction
-
-" Compute a character-wise diff between two strings, with an additional cost
-" for each transition from a non-diagonal to a diagonal. This cost must be
-" a positive even number.
-function! conflict3#line_diff1(transition_cost, x, y)
-  " far[d][k] := the largest i such that (i, d-2*k+i) is reachable with the cost d.
-  " ndfar[d][k] := the largest i such that (i, d-2*k+i) is reachable with the
-  "   cost d, and the last move is not diagonal.
-  let route = []
-
-  let x_len = len(a:x)
-  let y_len = len(a:y)
-  let maxcost = x_len + y_len
-  let far = repeat([0], 2 * maxcost + 1)
-  let ndfar = repeat([0], 2 * maxcost + 1)
-  let prev_ndfar = repeat([0], 2 * maxcost + 1)
-  let choice = repeat([0], 2 * maxcost + 1)
-  let d = 0
-  let fars = [far]
-  let ndfars = [prev_ndfar, ndfar]
-  let choices = [choice]
-  let common_prefix = 0
-
-  while common_prefix < x_len && common_prefix < y_len &&
-        \ a:x[common_prefix] == a:y[common_prefix]
-    let common_prefix += 1
-  endwhile
-
-  while d <= maxcost
-
-    let k = 0
-    while k <= d
-      let ch = 2
-      let d2 = d - a:transition_cost
-      let k2 = k - a:transition_cost / 2
-      if 0 <= d2 && 0 <= k2 && k2 <= d2
-        let i = fars[d2][k2]
-      else
-        let i = common_prefix
-      endif
-
-      if k != d && i <= prev_ndfar[k]
-        let i = prev_ndfar[k]
-        let ch = 1
-      endif
-
-      if k != 0 && i < prev_ndfar[k-1] + 1
-        let ch = 0
-        let i = prev_ndfar[k-1] + 1
-      endif
-      let choice[k] = ch
-      let ndfar[k] = i
-
-      let j = d - 2*k + i
-      while (i < x_len && j < y_len && a:x[i] == a:y[j])
-        let i += 1
-        let j += 1
-      endwhile
-
-      if i == x_len && j == y_len
-        " Reached the goal
-
-        let pts = []
-        let d1 = d
-        while 0 < d1
-          "echo 'd1=' . string(d1) . '; k=' . string(k) . '; i=' . string(i) . '; j=' . string(d1-2*k+i) . '; choice=' . string(choices[d1][k])
-          if choices[d1][k] == 0
-            call insert(pts, [i, d1-2*k+i])
-            let k -= 1
-            let i = ndfars[d1][k]
-            let d1 -= 1
-          elseif choices[d1][k] == 1
-            call insert(pts, [i, d1-2*k+i])
-            let i = ndfars[d1][k]
-            let d1 -= 1
-          else
-            let d1 -= a:transition_cost
-            let k -= a:transition_cost / 2
-          endif
-        endwhile
-        call insert(pts, [i, d1-2*k+i])
-        "echo pts
-
-        let diff = []
-        let [i, j] = pts[0]
-        call s:extend_n(diff, i, 2)
-        for [i1, j1] in pts[1:]
-          if i1 - j1 > i - j
-            call add(diff, 0)
-            call s:extend_n(diff, i1 - i - 1, 2)
-          else
-            call add(diff, 1)
-            call s:extend_n(diff, i1 - i, 2)
-          endif
-          let i = i1
-          let j = j1
-        endfor
-        return diff
-      endif
-
-      let far[k] = i
-
-      let k += 1
-    endwhile
-    let d += 1
-    let prev_ndfar = ndfar
-    let ndfar = repeat([0], 2 * maxcost + 1)
-    let choice = repeat([0], 2 * maxcost + 1)
-    let far = repeat([0], 2 * maxcost + 1)
-    call add(ndfars, ndfar)
-    call add(choices, choice)
-    call add(fars, far)
-  endwhile
-
-  throw 'diff1: unreachable'
-endfunction
-
-function! s:extend_n(arr, n, x)
-  call extend(a:arr, repeat([a:x], a:n))
-endfunction
-
-function! s:ngram_bag(n, s)
-  let slen = len(a:s)
-  let n = min([a:n, slen])
-
-  let i = -n + 1
-
-  let bag = {}
-  while i < slen
-    let sub = a:s[max([i, 0]) : min([i + n, slen]) - 1]
-    if has_key(bag, sub)
-      let bag[sub] += 1
-    else
-      let bag[sub] = 1
-    endif
-    let i += 1
-  endwhile
-
-  return bag
-endfunction
-
-function! s:bag_intersection_size(x, y)
-  let c = 0
-  for [key, val] in items(a:x)
-    if has_key(a:y, key)
-      let c += min([val, a:y[key]])
-    endif
-  endfor
-  return c
-endfunction
-
-function! conflict3#multiline_diff(x, y)
-  let n = 5
-  let x_ngrams = map(copy(a:x), { i, s -> s:ngram_bag(n, s) })
-  let y_ngrams = map(copy(a:y), { i, s -> s:ngram_bag(n, s) })
-
-  function! s:line_cost(x_i, y_i) closure
-    let x = a:x[a:x_i]
-    let y = a:y[a:y_i]
-    if x == y
-      return 0
-    endif
-    let total_len = len(x) + len(y)
-    let size = s:bag_intersection_size(x_ngrams[a:x_i], y_ngrams[a:y_i])
-    let total_size = total_len + min([n, len(x)]) + min([n, len(y)]) - 2
-    let cost = 3.0 * (total_size - 2 * size) / total_size + 0.1
-    "echo string(cost) . ': <' . x . ',' . y . '>'
-    return cost
-  endfunction
-
-  let diff = s:diff(len(a:x), len(a:y), funcref('s:line_cost'))
-  let i = 0
-  let j = 0
-  let out = []
-  for e in diff
-    if e == 0
-      let i += 1
-      call add(out, 0)
-    elseif e == 1
-      let j += 1
-      call add(out, 1)
-    else
-      call add(out, conflict3#line_diff1(4, a:x[i], a:y[j]))
-      let i += 1
-      let j += 1
-    endif
-  endfor
-  return out
-endfunction
-
-" 3-way diffs
-"
-" A 3-way diff is an array of the following items:
-"
-" [0] - Add/None: added in local
-" [1] - None/Add: added in remote
-" [2] - Remove/Remove: removed in both
-" [3, subdiff] - Remove/Modify: removed in local, modified in remote
-" [4, subdiff] - Modify/Remove: modified in local, removed in remote
-" [5, subdiff] - Modify/Modify: modified in both
-
-function! s:make_3way(diff_local, diff_remote,
-      \ make_subdiff_remove_modify, make_subdiff_modify_remove,
-      \ make_subdiff_modify_modify)
-  let i = 0
-  let j = 0
-  let len_local = len(a:diff_local)
-  let len_remote = len(a:diff_remote)
-
-  let out = []
-
-  while i < len_local || j < len_remote
-    if i < len_local && s:eq(1, a:diff_local[i])
-      call add(out, [0])
-      let i += 1
-    elseif j < len_remote && s:eq(1, a:diff_remote[j])
-      call add(out, [1])
-      let j += 1
-    else
-      let x = a:diff_local[i]
-      let y = a:diff_remote[j]
-      if s:eq(x, 0)
-        if s:eq(y, 0)
-          call add(out, [2])
-        else
-          call add(out, [3, a:make_subdiff_remove_modify(y)])
-        endif
-      else
-        if s:eq(y, 0)
-          call add(out, [4, a:make_subdiff_modify_remove(x)])
-        else
-          call add(out, [5, a:make_subdiff_modify_modify(x, y)])
-        endif
-      endif
-      let i += 1
-      let j += 1
-    endif
-  endwhile
-
-  return out
-endfunction
-
-function! s:charwise_3way(diff_local, diff_remote)
-  let Fn = { -> [] }
-  return s:make_3way(a:diff_local, a:diff_remote, Fn, Fn, Fn)
-endfunction
-
-function! s:linewise_3way(diff_local, diff_remote)
-  function! s:rm(remote)
-    return s:charwise_3way(s:removal_diff(a:remote), a:remote)
-  endfunction
-  function! s:mr(local)
-    return s:charwise_3way(a:local, s:removal_diff(a:local))
-  endfunction
-  return s:make_3way(a:diff_local, a:diff_remote,
-        \ funcref('s:rm'), funcref('s:mr'), funcref('s:charwise_3way'))
-endfunction
-
 function! conflict3#find_conflict()
   let orig_cursor = getcurpos()
 
-  let end_marker    = search('\V\^>>>>>>', 'W')
+  call setpos('.', [orig_cursor[0], orig_cursor[1], 1, orig_cursor[2]])
+
+  let end_marker    = search('\V\^>>>>>>', 'cW')
   let remote_marker = search('\V\^======', 'bW')
   let base_marker   = search('\V\^||||||', 'bW')
   let local_marker  = search('\V\^<<<<<<', 'bW')
@@ -427,11 +37,73 @@ function! conflict3#find_conflict()
   return []
 endfunction
 
+" Mapping from bufno to conflict info
+let s:saved_conflict_info = {}
+
+function! s:get_conflict_info()
+  let locarray = conflict3#find_conflict()
+  if len(locarray) == 0
+    return { 'valid': 0 }
+  endif
+
+  let [local_marker, base_marker, remote_marker, end_marker] = locarray
+  let local = getline(local_marker + 1, base_marker - 1)
+  let base = getline(base_marker + 1, remote_marker - 1)
+  let remote = getline(remote_marker + 1, end_marker - 1)
+
+  let buf = string(bufnr('%'))
+  let saved = get(s:saved_conflict_info, buf, { 'valid': 0 })
+  if saved.valid && local == saved.local && base == saved.base
+        \ && remote == saved.remote
+    " Saved diff is still valid.
+    let diff = saved.diff
+  else
+    let local_diff = conflict3#diff#multiline_diff(base, local)
+    let remote_diff = conflict3#diff#multiline_diff(base, remote)
+    let diff = conflict3#diff#linewise_3way(local_diff, remote_diff)
+  endif
+
+  let info = {
+        \ 'valid': 1,
+        \ 'diff': diff,
+        \ 'local_marker': local_marker,
+        \ 'base_marker': base_marker,
+        \ 'remote_marker': remote_marker,
+        \ 'end_marker': end_marker,
+        \ 'local': local,
+        \ 'base': base,
+        \ 'remote': remote }
+  let s:saved_conflict_info[buf] = info
+  return info
+endfunction
+
+function! s:set(dic, key, val)
+  let a:dic[a:key] = a:val
+endfunction
+
+function! s:update_conflict(info, edits, newdiff)
+  let a:info.diff = a:newdiff
+  call s:perform_edits(a:edits + [
+        \ [ a:info.local_marker, { n -> s:set(a:info, 'local_marker', n) } ],
+        \ [ a:info.base_marker, { n -> s:set(a:info, 'base_marker', n) } ],
+        \ [ a:info.remote_marker, { n -> s:set(a:info, 'remote_marker',  n) } ],
+        \ [ a:info.end_marker, { n -> s:set(a:info, 'end_marker', n) } ]])
+  let a:info.local = getline(a:info.local_marker + 1, a:info.base_marker - 1)
+  let a:info.base = getline(a:info.base_marker + 1, a:info.remote_marker - 1)
+  let a:info.remote = getline(a:info.remote_marker + 1, a:info.end_marker - 1)
+endfunction
+
+" Completely delete a conflict
+function! s:delete_conflict(info)
+  call s:perform_edits([[a:info.local_marker, a:info.end_marker + 1, []]])
+  unlet s:saved_conflict_info[string(bufnr('%'))]
+endfunction
+
 function! s:conflict_diffs(local_marker, base_marker, remote_marker, end_marker)
   let local = getline(a:local_marker + 1, a:base_marker - 1)
   let base = getline(a:base_marker + 1, a:remote_marker - 1)
   let remote = getline(a:remote_marker + 1, a:end_marker - 1)
-  return [conflict3#multiline_diff(base, local), conflict3#multiline_diff(base, remote)]
+  return [conflict3#diff#multiline_diff(base, local), conflict3#multiline_diff(base, remote)]
 endfunction
 
 function! s:pack_line_highlights(line, highlight_cols)
@@ -457,10 +129,6 @@ function! s:pack_line_highlights(line, highlight_cols)
 
   call add(out, [cur_hi, [a:line, start_col, cur_col - start_col + 1]])
   return out
-endfunction
-
-function! s:eq(a, b)
-  return type(a:a) == type(a:b) && a:a == a:b
 endfunction
 
 " Compute highlights a single line
@@ -505,13 +173,13 @@ function! s:line_highlights(diff3, local_line, base_line, remote_line)
 endfunction
 
 " Compute highlights for everything
-function! s:highlights(diff3, local_start, base_start, remote_start)
-  let local = a:local_start
-  let base = a:base_start
-  let remote = a:remote_start
+function! s:highlights(info)
+  let local = a:info.local_marker + 1
+  let base = a:info.base_marker + 1
+  let remote = a:info.remote_marker + 1
   let out = []
 
-  for item in a:diff3
+  for item in a:info.diff
     let type = item[0]
 
     if type == 0 " Add/None
@@ -570,12 +238,543 @@ endfunction
 
 function! conflict3#highlight_next_conflict()
   call conflict3#clear_highlights()
-  let ls = conflict3#find_conflict()
-  if len(ls) == 0
+  let info = s:get_conflict_info()
+  if !info.valid
     return
   endif
-  let [local, base, remote, end] = ls
-  let [local_diff, remote_diff] = s:conflict_diffs(local, base, remote, end)
-  let diff3 = s:linewise_3way(local_diff, remote_diff)
-  call s:apply_highlights(s:highlights(diff3, local + 1, base + 1, remote + 1))
+  call s:apply_highlights(s:highlights(info))
+endfunction
+
+function! conflict3#resolve_one_hunk()
+  call conflict3#clear_highlights()
+  let info = s:get_conflict_info()
+  if !info.valid
+    return
+  endif
+  let curpos = getcurpos()
+  let cs = s:make_microhunks(info.diff)
+  call s:annotate_microhunks(cs)
+  let start = s:find_next_microhunk(cs, curpos[1], curpos[2],
+        \ info.local_marker + 1, info.base_marker + 1, info.remote_marker + 1)
+  let r = s:try_resolve_hunk(cs, start, info.local, info.base, info.remote, 1)
+  if len(r) == 0
+    let r = s:try_resolve_hunk(cs, [], info.local, info.base, info.remote, 1)
+  endif
+  if len(r) == 0
+    echoerr "Failed to resolve hunk"
+  else
+    let edits = s:absolutize_edits(r[0], info.local_marker + 1, info.base_marker + 1, info.remote_marker + 1)
+    call s:update_conflict(info, edits, s:hunks_to_diff(r[1]))
+  endif
+  call s:apply_highlights(s:highlights(info))
+endfunction
+
+function! conflict3#resolve_all_hunks()
+  call conflict3#clear_highlights()
+  let info = s:get_conflict_info()
+  if !info.valid
+    return
+  endif
+  while 1
+    let cs = s:make_microhunks(info.diff)
+    call s:annotate_microhunks(cs)
+    let r = s:try_resolve_hunk(cs, [], info.local, info.base, info.remote, 1)
+    if len(r) == 0
+      break
+    endif
+    let edits = s:absolutize_edits(r[0], info.local_marker + 1, info.base_marker + 1, info.remote_marker + 1)
+    call s:update_conflict(info, edits, s:hunks_to_diff(r[1]))
+  endwhile
+  call s:apply_highlights(s:highlights(info))
+endfunction
+
+function! conflict3#shrink(also_remove)
+  call conflict3#clear_highlights()
+  let info = s:get_conflict_info()
+  if !info.valid
+    return
+  endif
+  let [edits, newdiff] = s:shrink_edits(info)
+  call s:update_conflict(info, edits, newdiff)
+  if len(newdiff) == 0 && a:also_remove
+    call s:delete_conflict(info)
+  else
+    call s:apply_highlights(s:highlights(info))
+  endif
+endfunction
+
+function! s:shrink_edits(info)
+  " Shrink top
+  let i = 0
+
+  while i < len(a:info.local) && i < len(a:info.base) && i < len(a:info.remote) &&
+        \ a:info.local[i] == a:info.base[i] && a:info.base[i] == a:info.remote[i]
+    let i += 1
+  endwhile
+
+  let diff1 = a:info.diff[i:-1]
+  if 0 < i
+    let edits_top = [
+          \ [a:info.local_marker, a:info.local_marker, a:info.local[0:i-1]],
+          \ [a:info.local_marker + 1, a:info.local_marker + 1 + i, []],
+          \ [a:info.base_marker + 1, a:info.base_marker + 1 + i, []],
+          \ [a:info.remote_marker + 1, a:info.remote_marker + 1 + i, []]]
+  else
+    let edits_top = []
+  endif
+
+  if i == len(a:info.local) || i == len(a:info.base) || i == len(a:info.remote)
+    " Penetrated to the end.
+    return [edits_top, diff1]
+  endif
+
+  " Shrink bottom
+  let i = 0
+
+  while i < len(a:info.local) && i < len(a:info.base) && i < len(a:info.remote) &&
+        \ a:info.local[-1-i] == a:info.base[-1-i] && a:info.base[-1-i] == a:info.remote[-1-i]
+    let i += 1
+  endwhile
+
+  if 0 < i
+    let edits_bottom = [
+          \ [a:info.end_marker + 1, a:info.end_marker + 1, a:info.local[-i:-1]],
+          \ [a:info.base_marker - i, a:info.base_marker, []],
+          \ [a:info.remote_marker - i, a:info.remote_marker, []],
+          \ [a:info.end_marker - i, a:info.end_marker, []]]
+  else
+    let edits_bottom = []
+  endif
+  return [edits_top + edits_bottom, diff1[-i:-1]]
+endfunction
+
+" Microconflict is a fragment of a 3-way diff. It's represented as a
+" Dictionary like:
+"   status:
+"     0 - all three versions are identical
+"     1 - base and local are the same, but remote is different
+"     2 - base and remote are the same, but local is different
+"     3 - local and remote are the same, but base is differnet
+"     4 - all three versions are different
+"     100 - this is not really a microhunk, rather a line containing
+"       multiple character-wise microhunks (in the 'children' field).
+"   diff: (present if status != 100)
+"     a 3-way diff
+"   children: (present if status == 100)
+"     a list of microhunks. Contains at least one non-trivial conflict.
+
+function! s:make_microhunks(diff)
+  let out = []
+  let diff_local = 0
+  let diff_remote = 0
+  let last_was_add = 0
+  let diff = []
+
+  " Flush the current hunk to the output array.
+  let flush_hunk = {}
+  function! flush_hunk._() closure
+    if diff_local && diff_remote
+      " TODO: check if local and remote are the same.
+      let status = 4
+    elseif diff_local
+      let status = 2
+    elseif diff_remote
+      let status = 1
+    else
+      let status = 0
+    endif
+
+    call add(out, { 'status': status, 'diff': diff })
+    let diff_local = 0
+    let diff_remote = 0
+    let last_was_add = 0
+    let diff = []
+  endfunction
+  for item in a:diff
+    let type = item[0]
+
+    let current_is_trivial = diff_local == 0 && diff_remote == 0 && len(diff) > 0
+
+    " First, determine whether this item is trivial, i.e. contains no change
+    " at all.
+    if type == 5 && count(item[1], [5, []]) == len(item[1])
+      " Trivial item.
+      if diff_local != 0 || diff_remote != 0
+        " The current hunk is non-trivial. Flush it first.
+        call flush_hunk._()
+      endif
+      call add(diff, item)
+    elseif type == 5
+      " Nontrivial character-wise diff. Flush the current hunk if any,
+      " and recurse.
+      if len(diff) > 0
+        call flush_hunk._()
+      endif
+      call add(out, { 'status': 100, 'children': s:make_microhunks(item[1]) })
+    elseif type == 0 " Add/None
+      if 0 < len(diff) && !diff_local && !last_was_add
+        call flush_hunk._()
+      endif
+      let diff_local = 1
+      let last_was_add = 1
+      call add(diff, item)
+    elseif type == 1 " None/Add
+      if 0 < len(diff) && !diff_remote && !last_was_add
+        call flush_hunk._()
+      endif
+      let diff_remote = 1
+      let last_was_add = 1
+      call add(diff, item)
+    elseif type == 2 " Remove/Remove
+      if 0 < len(diff) && !diff_local && !diff_remote
+        call flush_hunk._()
+      endif
+      let diff_local = 1
+      let diff_remote = 1
+      call add(diff, item)
+    elseif type == 3 " Remove/Modify
+      let trivial_remote = count(item[1], [3, []]) == len(item[1])
+      if 0 < len(diff) && !diff_local && (!diff_remote || trivial_remote)
+        call flush_hunk._()
+      endif
+      let diff_local = 1
+      if !trivial_remote
+        let diff_remote = 1
+      endif
+      call add(diff, item)
+    else " Modify/Remove
+      let trivial_local = count(item[1], [4, []]) == len(item[1])
+      if 0 < len(diff) && (!diff_local || trivial_local) && !diff_remote
+        call flush_hunk._()
+      endif
+      if !trivial_local
+        let diff_local = 1
+      endif
+      let diff_remote = 1
+      call add(diff, item)
+    endif
+  endfor
+
+  if len(diff) > 0
+    call flush_hunk._()
+  endif
+
+  return out
+endfunction
+
+" Annotate microhunks with their offsets. The following fields are added:
+" * local_begin
+" * local_end
+" * base_begin
+" * base_end
+" * remote_begin
+" * remote_end
+"
+" This function updates the input data structure in place.
+function! s:annotate_microhunks(hunks)
+  let local = 0
+  let base = 0
+  let remote = 0
+  for hunk in a:hunks
+    if hunk.status == 100
+      call s:annotate_microhunks(hunk.children)
+      let local_end = local + 1
+      let base_end = base + 1
+      let remote_end = remote + 1
+    else
+      let local_end = local
+      let base_end = base
+      let remote_end = remote
+      for item in hunk.diff
+        let type = item[0]
+        if type == 0 " Add/None
+          let local_end += 1
+        elseif type == 1 " None/Add
+          let remote_end += 1
+        elseif type == 2 " Remove/Remove
+          let base_end += 1
+        elseif type == 3 " Remove/Modify
+          let base_end += 1
+          let remote_end += 1
+        elseif type == 4 " Modify/Remove
+          let local_end += 1
+          let base_end += 1
+        else " Modify/Modify
+          let local_end += 1
+          let base_end += 1
+          let remote_end += 1
+        endif
+      endfor
+    endif
+    let hunk.local_begin = local
+    let hunk.local_end = local_end
+    let hunk.base_begin = base
+    let hunk.base_end = base_end
+    let hunk.remote_begin = remote
+    let hunk.remote_end = remote_end
+    let local = local_end
+    let base = base_end
+    let remote = remote_end
+  endfor
+endfunction
+
+function! s:find_next_microhunk(hunks, line, col, local_start,
+      \ base_start, remote_start)
+  if a:line < a:base_start
+    let begin = 'local_begin'
+    let end = 'local_end'
+    let start = a:local_start
+  elseif a:line < a:remote_start
+    let begin = 'base_begin'
+    let end = 'base_end'
+    let start = a:base_start
+  else
+    let begin = 'remote_begin'
+    let end = 'remote_end'
+    let start = a:remote_start
+  endif
+
+  for i in range(len(a:hunks))
+    let hunk = a:hunks[i]
+    if start + hunk[end] < a:line || hunk.status == 0
+      continue
+    endif
+
+    if hunk.status == 100
+      if a:line == start + hunk[begin]
+        let col = a:col
+      else
+        let col = 0
+      endif
+
+      for j in range(len(hunk.children))
+        let hunk1 = hunk.children[j]
+        if col <= hunk1[begin]
+          return [i, j]
+        endif
+      endfor
+    else
+      return [i]
+    endif
+  endfor
+  return []
+endfunction
+
+let s:v_local = 0
+let s:v_base = 1
+let s:v_remote = 2
+
+function! s:make_unchanged_diff_charwise(str)
+  return repeat([[5, []]], len(a:str))
+endfunction
+
+function! s:make_unchanged_diff(thing)
+  if type(a:thing) == v:t_string
+    return s:make_unchanged_diff_charwise(a:thing)
+  else
+    return map(copy(a:thing), { str -> [5, s:make_unchanged_diff_charwise(str)] })
+  endif
+endfunction
+
+function! s:make_trivial_hunk(thing)
+  return { 'status': 0, 'diff': s:make_unchanged_diff(a:thing) }
+endfunction
+
+" Try to resolve the next nontrivial hunk, searched from the given line:col.
+" If only_soluble is true, ignore insoluble hunks and keep searching.
+"
+" If a hunk is solved, returns [relative-edits, updated_hunks].
+" Otherwise, returns [].
+function! s:try_resolve_hunk(hunks, start_loc,
+      \ local, base, remote, only_soluble)
+  let hunks = copy(a:hunks)
+  for i in range(len(hunks))
+    let hunk = hunks[i]
+    if 0 < len(a:start_loc) && i < a:start_loc[0]
+      continue
+    endif
+
+    if hunk.status == 100
+      let on_line = 0 < len(a:start_loc) && a:start_loc[0] == i
+      let r = s:try_resolve_hunk(hunk.children, [on_line && 1 < len(a:start_loc) ? a:start_loc[1] : 0],
+            \ a:local[hunk.local_begin], a:base[hunk.base_begin],
+            \ a:remote[hunk.remote_begin], a:only_soluble)
+      if len(r) == 2
+        let nontrivial_hunk_found = 0
+        for c in r[1]
+          if c.status != 0
+            let nontrivial_hunk_found = 1
+            break
+          endif
+        endfor
+        if nontrivial_hunk_found
+          let hunks[i] = { 'status': 100, 'children': r[1]}
+        else
+          let hunks[i] = { 'status': 0, 'diff': [[5, s:concat(map(r[1], {index, val -> val.diff}))]] }
+        endif
+        let edits = []
+        for [ver, begin, end, str] in r[0]
+          if ver == s:v_local
+            let line = hunk.local_begin
+          elseif ver == s:v_base
+            let line = hunk.base_begin
+          else
+            let line = hunk.remote_begin
+          endif
+          call add(edits, [ver, line, begin, end, str])
+        endfor
+        return [edits, hunks]
+      endif
+    else
+      if hunk.status == 0
+        continue " Skip trivial hunk.
+      endif
+      if hunk.status == 1
+        " Only remote is differnet. Take it.
+        let remote_lines = s:subseq(a:remote, hunk.remote_begin, hunk.remote_end)
+        let hunks[i] = s:make_trivial_hunk(remote_lines)
+        return [[[s:v_local, hunk.local_begin, hunk.local_end, remote_lines],
+              \  [s:v_base, hunk.base_begin, hunk.base_end, remote_lines]],
+              \ hunks]
+      elseif hunk.status == 2
+        " Only local is different. Take it.
+        let local_lines = s:subseq(a:local, hunk.local_begin, hunk.local_end)
+        let hunks[i] = s:make_trivial_hunk(local_lines)
+        return [[[s:v_base, hunk.base_begin, hunk.base_end, local_lines],
+              \  [s:v_remote, hunk.remote_begin, hunk.remote_end, local_lines]],
+              \ hunks]
+      elseif hunk.status == 4
+        " Local and remote are both different from base. This hunk is
+        " soluble iff they are the same.
+        let local_lines = s:subseq(a:local, hunk.local_begin, hunk.local_end)
+        let remote_lines = s:subseq(a:remote, hunk.remote_begin, hunk.remote_end)
+        if local_lines == remote_lines
+          let hunks[i] = s:make_trivial_hunk(local_lines)
+          return [[[s:v_base, hunk.base_begin, hunk.base_end, local_lines]], hunks]
+        endif
+      endif
+    endif
+    " This hunk is not soluble.
+    if a:only_soluble
+      return []
+    endif
+  endfor
+  " Nothing happend.
+  return []
+endfunction
+
+function! s:absolutize_edits(relative_edits, local_start, base_start, remote_start)
+  function! s:absolutize_edit_item(idx, edit) closure
+    if a:edit[0] == s:v_local
+      let start = a:local_start
+    elseif a:edit[0] == s:v_base
+      let start = a:base_start
+    else
+      let start = a:remote_start
+    endif
+    if len(a:edit) == 4
+      return [start + a:edit[1], start + a:edit[2], a:edit[3]]
+    else
+      return [start + a:edit[1], a:edit[2], a:edit[3], a:edit[4]]
+    endif
+  endfunction
+  return map(copy(a:relative_edits), funcref('s:absolutize_edit_item'))
+endfunction
+
+" Edit
+"
+" An edit is an instruction for updating the buffer. It takes one of the three
+" forms;
+"
+" [ start-line, end-line, lines ]
+"   Overwrite [start-line, end-line) with lines.
+" [ line, start-col, end-col, string ]
+"   Overwrite [line:start-col, line:end-col) with string.
+" [ line, fn ]
+"   Call fn with a single argument, a number to which line is translated after
+"   the edits.
+
+function! s:compare_edits(a, b)
+  " Compare line first
+  if a:a[0] < a:b[0]
+    return -1
+  elseif a:a[0] > a:b[0]
+    return 1
+  endif
+
+  " Edits comes before line number reports
+  if len(a:a) == 2
+    return 1
+  elseif len(a:b) == 2
+    return -1
+  endif
+
+  " At this point, a and b should both be character-wise edits.
+  if len(a:a) < 4 || len(a:b) < 4
+    throw 'Comparing incompatible edits: ' . string(a:a) . ', ' . string(a:b)
+  endif
+
+  return a:a[1] - a:b[1]
+endfunction
+
+function! s:perform_edits(edits)
+  let edits = sort(copy(a:edits), funcref('s:compare_edits'))
+
+  " Line number after edit - line number before edit.
+  let line_offset = 0
+
+  let col_offset = 0
+  let last_charwise_edit = 0
+
+  for edit in edits
+    if len(edit) == 2
+      call edit[1](edit[0] + line_offset)
+    elseif len(edit) == 3
+      let [line_begin, line_end, lines] = edit
+      if line_begin < line_end
+        silent execute string(line_offset + line_begin) . ',' . string(line_offset + line_end - 1) . 'delete _'
+      endif
+      call append(line_offset + line_begin - 1, lines)
+      let line_offset += len(lines) - (line_end - line_begin)
+    else
+      let [line, col_begin, col_end, str] = edit
+      if last_charwise_edit != line
+        let last_charwise_edit = line
+        let col_offset = 0
+      endif
+      let old_line = getline(line_offset + line)
+      let new_line = s:subseq(old_line, 0,  col_offset + col_begin) . str . old_line[col_offset + col_end : -1]
+      call setline(line_offset + line, new_line)
+      let col_offset += len(str) - (col_end - col_begin)
+    endif
+  endfor
+endfunction
+
+function! s:concat(lists)
+  let out = []
+  for list in a:lists
+    call extend(out, list)
+  endfor
+  return out
+endfunction
+
+function! s:hunks_to_diff(hunks)
+  let diff = []
+  for hunk in a:hunks
+    if hunk.status == 100
+      call add(diff, [5, s:hunks_to_diff(hunk.children)])
+    else
+      call extend(diff, hunk.diff)
+    endif
+  endfor
+  return diff
+endfunction
+
+" Returns seq[begin : end - 1], but avoids accidentally using a negative
+" index. seq can be either a list or a string.
+function! s:subseq(seq, begin, end)
+  if a:end == 0
+    return a:seq[1:0]
+  endif
+  return a:seq[a:begin : a:end - 1]
 endfunction

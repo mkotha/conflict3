@@ -1,0 +1,97 @@
+Given haskell (Code with conflict):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    submitWithInfo curl contestName sinfo taskNum langs solution
+  =======
+    submitWithInfo curl contestName sinfo taskNum langs solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Do (resolve one at curl):
+  /curl\<CR>n:Conflict3ResolveOne\<CR>
+
+Expect (langs -> lang):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    submitWithInfo curl contestName sinfo taskNum lang solution
+  =======
+    submitWithInfo curl contestName sinfo taskNum lang solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Do (resolve one at return):
+  /return\<CR>:Conflict3ResolveOne\<CR>
+
+Expect (bind):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    _ <- submitWithInfo curl contestName sinfo taskNum langs solution
+  =======
+    _ <- submitWithInfo curl contestName sinfo taskNum langs solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Execute (resolve one twice):
+  Conflict3ResolveOne
+  Conflict3ResolveOne
+
+Expect (bind and langs -> lang):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+  =======
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Execute (resolve one three times):
+  Conflict3ResolveOne
+  Conflict3ResolveOne
+  try
+    Conflict3ResolveOne
+  catch /.*/
+  endtry
+
+Expect (bind and langs -> lang):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+  =======
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.

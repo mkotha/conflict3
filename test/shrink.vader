@@ -1,0 +1,79 @@
+Given haskell (partially solved):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+  <<<<<<< HEAD
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+  =======
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Execute (shrink):
+  Conflict3Shrink
+
+Expect (minimized):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+  <<<<<<< HEAD
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+  =======
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Execute (shrink!):
+  Conflict3Shrink!
+
+Expect (minimized):
+    let !sinfo = parseSubmitInfo submitPageContents
+    taskNum <- getTaskNumByName curl contestName problemName
+    _ <- submitWithInfo curl contestName sinfo taskNum lang solution
+  <<<<<<< HEAD
+    return ()
+  ||||||| parent of f24792a... Abstract over backends
+  =======
+    where
+      langs = [Haskell_Plaform_2014_2_0_0, Haskell]
+  >>>>>>> f24792a... Abstract over backends
+
+  -- | Information needed to make a POST request for submission.
+
+Given haskell (fully resolved):
+  <<<<<<< HEAD
+      , ["-rtsopts"]
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  ||||||| parent of 184d9f9... use -rtdopts
+      , ["-rtsopts"]
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  =======
+      , ["-rtsopts"]
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  >>>>>>> 184d9f9... use -rtdopts
+
+Execute (shrink):
+  Conflict3Shrink
+
+Expect (empty conflict):
+      , ["-rtsopts"]
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  <<<<<<< HEAD
+  ||||||| parent of 184d9f9... use -rtdopts
+  =======
+  >>>>>>> 184d9f9... use -rtdopts
+
+Execute (shrink!):
+  Conflict3Shrink!
+
+Expect (no conflict):
+      , ["-rtsopts"]
+        ghc [flatFile problemName, "-o", executableFile problemName]
