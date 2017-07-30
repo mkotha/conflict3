@@ -13,29 +13,27 @@ Execute(line_diff1 is sound):
   while i < 100
     let a = conflict3#test#random_string(i / 3)
     let b = conflict3#test#random_string(i / 3)
-    let diff = conflict3#line_diff1(a, b)
-    Assert conflict3#test#diff_is_sound(a, b, diff), a . ',' . b
+    let diff = conflict3#line_diff1(4, a, b)
+    Assert conflict3#test#diff_is_sound(a, b, diff), '4,' . a . ',' . b
     let i += 1
   endwhile
 
-Execute(line_diff and line_diff1 are similar):
+Execute(line_diff is shorter than line_diff1):
   let i = 0
   while i < 100
     let a = conflict3#test#random_string(i / 10)
     let b = conflict3#test#random_string(i / 10)
     let diff = conflict3#line_diff(a, b)
-    let diff1 = conflict3#line_diff1(a, b)
-    for d in [0, 1, 2]
-      AssertEqual count(diff, d), count(diff1, d), string(d) . ': ' . a . ',' . b
-    endfor
+    let diff1 = conflict3#line_diff1(4, a, b)
+    Assert len(diff) <= len(diff1), a . ',' . b
     let i += 1
   endwhile
 
 Execute(line_diff1 works as expected):
-  AssertEqual [0, 0, 0, 1, 1, 1], conflict3#line_diff1('foo', 'bar')
-  AssertEqual [2, 2, 0, 1], conflict3#line_diff1('baz', 'bar')
-  AssertEqual '22222000222001111111111111112222120000222011122000022211120000000000000000000000000',
-      \ join(conflict3#line_diff1(
+  AssertEqual [0, 0, 0, 1, 1, 1], conflict3#line_diff1(4, 'foo', 'bar')
+  AssertEqual [2, 2, 0, 1], conflict3#line_diff1(4, 'baz', 'bar')
+  AssertEqual '2222200022200111111111111111222200001222200000001111122200000000000000000000000001112',
+      \ join(conflict3#line_diff1(4,
       \    "let diff = s:diff(len(a:x), len(a:y), funcref('s:line_cost'))",
       \    "let d = conflict3#line_diff1(a:x[i], a:y[j])"), '')
 

@@ -153,31 +153,57 @@ function! conflict3#line_diff(x, y)
   return s:diff(len(a:x), len(a:y), { a, b -> a:x[a] == a:y[b] ? 0 : s:infinity})
 endfunction
 
-function! conflict3#line_diff1(x, y)
+" Compute a character-wise diff between two strings, with an additional cost
+" for each transition from a non-diagonal to a diagonal. This cost must be
+" a positive even number.
+function! conflict3#line_diff1(transition_cost, x, y)
   " far[d][k] := the largest i such that (i, d-2*k+i) is reachable with the cost d.
+  " ndfar[d][k] := the largest i such that (i, d-2*k+i) is reachable with the
+  "   cost d, and the last move is not diagonal.
   let route = []
 
   let x_len = len(a:x)
   let y_len = len(a:y)
   let maxcost = x_len + y_len
   let far = repeat([0], 2 * maxcost + 1)
-  let prev_far = repeat([0], 2 * maxcost + 1)
+  let ndfar = repeat([0], 2 * maxcost + 1)
+  let prev_ndfar = repeat([0], 2 * maxcost + 1)
   let choice = repeat([0], 2 * maxcost + 1)
   let d = 0
-  let fars = [prev_far, far]
+  let fars = [far]
+  let ndfars = [prev_ndfar, ndfar]
   let choices = [choice]
+  let common_prefix = 0
+
+  while common_prefix < x_len && common_prefix < y_len &&
+        \ a:x[common_prefix] == a:y[common_prefix]
+    let common_prefix += 1
+  endwhile
 
   while d <= maxcost
 
     let k = 0
     while k <= d
-      if k == 0 || k != d && prev_far[k] > prev_far[k-1]
-        let i = prev_far[k]
-        let choice[k] = 1
+      let ch = 2
+      let d2 = d - a:transition_cost
+      let k2 = k - a:transition_cost / 2
+      if 0 <= d2 && 0 <= k2 && k2 <= d2
+        let i = fars[d2][k2]
       else
-        let choice[k] = 0
-        let i = prev_far[k-1] + 1
+        let i = common_prefix
       endif
+
+      if k != d && i <= prev_ndfar[k]
+        let i = prev_ndfar[k]
+        let ch = 1
+      endif
+
+      if k != 0 && i < prev_ndfar[k-1] + 1
+        let ch = 0
+        let i = prev_ndfar[k-1] + 1
+      endif
+      let choice[k] = ch
+      let ndfar[k] = i
 
       let j = d - 2*k + i
       while (i < x_len && j < y_len && a:x[i] == a:y[j])
@@ -190,15 +216,23 @@ function! conflict3#line_diff1(x, y)
 
         let pts = []
         let d1 = d
-        while 0 <= d1
-          "echo 'd1=' . string(d1) . '; k=' . string(k) . '; i=' . string(i)
-          call insert(pts, [i, d1-2*k+i])
+        while 0 < d1
+          "echo 'd1=' . string(d1) . '; k=' . string(k) . '; i=' . string(i) . '; j=' . string(d1-2*k+i) . '; choice=' . string(choices[d1][k])
           if choices[d1][k] == 0
+            call insert(pts, [i, d1-2*k+i])
             let k -= 1
+            let i = ndfars[d1][k]
+            let d1 -= 1
+          elseif choices[d1][k] == 1
+            call insert(pts, [i, d1-2*k+i])
+            let i = ndfars[d1][k]
+            let d1 -= 1
+          else
+            let d1 -= a:transition_cost
+            let k -= a:transition_cost / 2
           endif
-          let i = fars[d1][k]
-          let d1 -= 1
         endwhile
+        call insert(pts, [i, d1-2*k+i])
         "echo pts
 
         let diff = []
@@ -223,11 +257,13 @@ function! conflict3#line_diff1(x, y)
       let k += 1
     endwhile
     let d += 1
-    let prev_far = far
-    let far = repeat([0], 2 * maxcost + 1)
+    let prev_ndfar = ndfar
+    let ndfar = repeat([0], 2 * maxcost + 1)
     let choice = repeat([0], 2 * maxcost + 1)
-    call add(fars, far)
+    let far = repeat([0], 2 * maxcost + 1)
+    call add(ndfars, ndfar)
     call add(choices, choice)
+    call add(fars, far)
   endwhile
 
   throw 'diff1: unreachable'
@@ -235,43 +271,6 @@ endfunction
 
 function! s:extend_n(arr, n, x)
   call extend(a:arr, repeat([a:x], a:n))
-endfunction
-
-function! s:defragment_linediff(x)
-  let n_copy = 0
-  let copy_mode = 1
-  let out = []
-
-  for i in a:x
-    if i == 0
-      let copy_mode = 0
-      call s:extend_n(out, n_copy, 1)
-      call s:extend_n(out, n_copy, 0)
-      call add(out, 0)
-      let n_copy = 0
-    elseif i == 1
-      let copy_mode = 0
-      call s:extend_n(out, n_copy, 1)
-      call s:extend_n(out, n_copy, 0)
-      call add(out, 1)
-      let n_copy = 0
-    else
-      if copy_mode
-        call add(out, 2)
-      else
-        let n_copy += 1
-        if 2 < n_copy
-          let copy_mode = 1
-          let n_copy = 0
-          call s:extend_n(out, 3, 2)
-        endif
-      endif
-    endif
-  endfor
-
-  call s:extend_n(out, n_copy, 2)
-  "echo 'defragment_linediff: ' . string(a:x) . ' -> ' . string(out)
-  return out
 endfunction
 
 function! s:ngram_bag(n, s)
@@ -335,13 +334,11 @@ function! conflict3#multiline_diff(x, y)
       let j += 1
       call add(out, 1)
     else
-      let d = conflict3#line_diff1(a:x[i], a:y[j])
+      call add(out, conflict3#line_diff1(4, a:x[i], a:y[j]))
       let i += 1
       let j += 1
-      call add(out, s:defragment_linediff(d))
     endif
   endfor
-  "return map(diff, { idx, i -> type(i) == v:t_list ? s:defragment_linediff(i) : i })
   return out
 endfunction
 
