@@ -54,6 +54,6 @@ nnoremap <Leader>c :Conflict3Highlight<CR>
 nnoremap <Leader>r :Conflict3ResolveAll \| Conflict3Shrink!<CR>
 ```
 
-See the documentation (`:help conflict3` or
-[online](https://github.com/mkotha/conflict3/blob/master/doc/conflict3.txt) for
+See the documentation (`:help conflict3.txt` or
+[online](https://github.com/mkotha/conflict3/blob/master/doc/conflict3.txt)) for
 more details.
