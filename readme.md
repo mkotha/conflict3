@@ -4,6 +4,8 @@ vim-conflict3
 vim-conflict3 is a plugin for Vim 8 and NeoVim that helps you resolve merge
 conflicts quickly.
 
+![demo image](https://github.com/mkotha/conflict3/blob/files/demo-1.gif?raw=true)
+
 ## Installation
 
 Use your favorite package manager. If you don't have one, you can use your
