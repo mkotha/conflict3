@@ -1,7 +1,7 @@
-vim-conflict3
-=============
+conflict3
+=========
 
-vim-conflict3 is a plugin for Vim 8 and NeoVim that helps you resolve merge
+conflict3 is a plugin for Vim 8 and NeoVim that helps you resolve merge
 conflicts quickly.
 
 ![demo image](https://github.com/mkotha/conflict3/blob/files/demo-1.gif?raw=true)
@@ -13,14 +13,14 @@ editor's built-in package facility. For Vim 8 users:
 
 ```
 mkdir -p ~/.vim/pack/conflict3/start
-git clone https://github.com/mkotha/vim-conflict3 ~/.vim/pack/conflict3/start/conflict3
+git clone https://github.com/mkotha/conflict3 ~/.vim/pack/conflict3/start/conflict3
 ```
 
 For NeoVim users:
 
 ```
 mkdir -p ~/.local/share/nvim/site/pack/conflict3/start
-git clone https://github.com/mkotha/vim-conflict3 ~/.local/share/nvim/site/pack/conflict3/start/conflict3
+git clone https://github.com/mkotha/conflict3 ~/.local/share/nvim/site/pack/conflict3/start/conflict3
 ```
 
 ## Setup
