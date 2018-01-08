@@ -99,5 +99,5 @@ conflict3 is designed to solve all these problems.
   valid, conflict.
 
 * It uses a line-matching algorithm that is aware of similarity between lines,
-  and often produces more sensible diffs in case of a large number of
-  consecutive lines modified.
+  and often produces more sensible diffs when a large number of consecutive
+  lines are modified.
