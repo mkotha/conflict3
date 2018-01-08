@@ -95,7 +95,8 @@ conflict3 is designed to solve all these problems.
 
 * It works directly on a file with conflict markers, and supports a way to
   incrementally resolve conflicts: it allows you to partially resolve a conflict
-  by simplifying it, turning it a less complicated, but still valid, conflict.
+  by simplifying it. That is, turning it into a less complicated, but still
+  valid, conflict.
 
 * It uses a line-matching algorithm that is aware of similarity between lines,
   and often produces more sensible diffs in case of a large number of
