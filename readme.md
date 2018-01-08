@@ -61,3 +61,42 @@ nnoremap <Leader>r :Conflict3ResolveAll \| Conflict3Shrink!<CR>
 See the documentation (`:help conflict3.txt` or
 [online](https://github.com/mkotha/conflict3/blob/master/doc/conflict3.txt)) for
 more details.
+
+## Why not `vimdiff`?
+
+`vimdiff` works great for simple 2-way merges, as long as you remember what
+changes you made to one of the versions. However it quickly becomes unusable for
+more complex situations due to various reasons. I enumerate some of them below.
+
+When working on a conflict, it is often very helpful to see 3 versions rathar
+than two. By having access to the base version (or the common ancestor) in
+addition to the two versions you are trying to merge, you see exactly which
+changes have happened to each of the versions. Conflict resolution is then the
+matter of transplanting one of the changes onto the other version.
+
+`vimdiff` poorly deals with this type of 3-way merge, because it doesn't know
+which one is the base. Typically a large amount of text is highlighted, because
+`vimdiff` compares all three versions at the same time. This means it's hard to
+see which part is modified by only one of the versions, and which part is
+modified by both.
+
+Another problem that arises when using `vimdiff` for a 3-way merge is that
+it does not offer a good way to resolve a large conflict incrementally.
+Ideally it should be possible to partially resolve a conflict, and easily see
+which part has been resolved and which part still needs resolution.
+
+A last problem is that it sometimes fails to match lines properly, leading to
+unreadable diffs.
+
+conflict3 is designed to solve all these problems.
+
+* It highlights exactly those parts that have changed in each version, in
+  different colors.
+
+* It works directly on a file with conflict markers, and supports a way to
+  incrementally resolve conflicts: it allows you to partially resolve a conflict
+  by simplifying it, turning it a less complicated, but still valid, conflict.
+
+* It uses a line-matching algorithm that is aware of similarity between lines,
+  and often produces more sensible diffs in case of a large number of
+  consecutive lines modified.
