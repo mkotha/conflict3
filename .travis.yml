@@ -1,14 +1,17 @@
 language: vim
 
-before_script: |
-  git clone https://github.com/junegunn/vader.vim.git
+sudo: required
+dist: trusty
 
-script: |
-  vim -Nu <(cat << VIMRC
-  filetype off
-  set rtp+=vader.vim
-  set rtp+=.
-  set rtp+=after
-  filetype plugin indent on
-  syntax enable
-  VIMRC) -c 'Vader! test/*' > /dev/null
+before_install:
+  - sudo add-apt-repository ppa:neovim-ppa/unstable -y
+  - sudo add-apt-repository ppa:jonathonf/vim -y
+  - sudo apt-get update -q
+  - sudo apt-get install vim neovim -y
+
+before_script:
+  - git clone https://github.com/junegunn/vader.vim.git
+
+script:
+  - vim -Nu test/rc.vim -c 'Vader! test/*' > /dev/null
+  - nvim -Nu test/rc.vim -c 'Vader! test/*' > /dev/null
