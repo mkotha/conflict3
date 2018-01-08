@@ -1,6 +1,8 @@
 conflict3
 =========
 
+[![Build Status](https://travis-ci.org/mkotha/conflict3.svg?branch=master)](https://travis-ci.org/mkotha/conflict3)
+
 conflict3 is a plugin for Vim 8 and NeoVim that helps you resolve merge
 conflicts quickly.
 
