@@ -3,8 +3,9 @@
 ==============================================================================
 CONTENTS                                                 *conflict3-contents*
 
-    1.Introduction.....................................|conflict3|
-    2.Setup............................................|conflict3-setup|
+    0.Introduction.....................................|conflict3|
+    1.Setup............................................|conflict3-setup|
+    2.Concepts.........................................|conflict3-concepts|
     3.Commands.........................................|conflict3-commands|
     4.Highlight groups.................................|conflict3-highlights|
 
