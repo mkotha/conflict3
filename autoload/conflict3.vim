@@ -44,8 +44,7 @@ function! conflict3#resolve_one_hunk()
   let curpos = getcurpos()
   let cs = s:make_microhunks(info.diff)
   call s:annotate_microhunks(cs)
-  let start = s:find_next_microhunk(cs, curpos[1], curpos[2],
-        \ info.local_marker + 1, info.base_marker + 1, info.remote_marker + 1)
+  let start = s:find_next_microhunk(cs, curpos[1], curpos[2], info)
   let r = s:try_resolve_hunk(cs, start, info, 1)
   if len(r) == 0
     let r = s:try_resolve_hunk(cs, [], info, 1)
@@ -769,20 +768,19 @@ endfunction
 "   [] if there is no microhunk after the cursor.
 "   [i] if the found microhunk is hunks[i].
 "   [i, j] if the found microhunk is hunks[i].children[j].
-function! s:find_next_microhunk(hunks, line, col, local_start,
-      \ base_start, remote_start)
-  if a:line < a:base_start
+function! s:find_next_microhunk(hunks, line, col, info)
+  if a:line < a:info.base_marker
     let begin = 'local_begin'
     let end = 'local_end'
-    let start = a:local_start
-  elseif a:line < a:remote_start
+    let start = a:info.local_marker + 1
+  elseif a:line < a:info.remote_marker
     let begin = 'base_begin'
     let end = 'base_end'
-    let start = a:base_start
+    let start = a:info.base_marker + 1
   else
     let begin = 'remote_begin'
     let end = 'remote_end'
-    let start = a:remote_start
+    let start = a:info.remote_marker + 1
   endif
 
   for i in range(len(a:hunks))
