@@ -8,7 +8,7 @@ CONTENTS                                                 *conflict3-contents*
     2.Concepts.........................................|conflict3-concepts|
     3.Commands.........................................|conflict3-commands|
     4.Highlight groups.................................|conflict3-highlights|
-
+    5.Configuration variables..........................|conflict3-config|
 
 ==============================================================================
 INTRODUCTION                                                      *conflict3*
@@ -117,5 +117,21 @@ Conflict3RemoteDel      Text that is deleted in the "remote" version. Defaults
                         to |hl-Conflict3Remote|
                                                            *hl-Conflict3Both*
 Conflict3Both           Text that is removed in the both versions.
+
+==============================================================================
+CONFIGURATION VARIABLES                                    *conflict3-config*
+
+                                               *g:conflict3_highlight_method*
+g:conflict3_highlight_method
+          Specifies which method conflict3 should use for highlighting text.
+          The following values are valid:
+
+              "match"   Use the |matchaddpos()| function. Highlights are
+                        per-window, and are cleared when the buffer is hidden.
+                        Default for Vim.
+              "nvim"    Use the NeoVim API. Highlights are per-buffer, and are
+                        automatically updated when lines are added/removed
+                        above them. Default for NeoVim.
+              "null"    Don't perform any highliting.
 
  vim:tw=78:ts=8:ft=help:norl:
