@@ -26,17 +26,17 @@ endif
 
 " Highlight the current conflict.
 function! conflict3#highlight_next_conflict()
-  call conflict3#clear_highlights()
+  call conflict3#highlight#clear()
   let info = s:get_conflict_info()
   if !info.valid
     return
   endif
-  call s:apply_highlights(s:highlights(info))
+  call conflict3#highlight#apply(s:highlights(info))
 endfunction
 
 " Resolve the next microhunk that can be resolved.
 function! conflict3#resolve_one_hunk()
-  call conflict3#clear_highlights()
+  call conflict3#highlight#clear()
   let info = s:get_conflict_info()
   if !info.valid
     return
@@ -55,12 +55,12 @@ function! conflict3#resolve_one_hunk()
   else
     call s:update_conflict(info, r[0], s:hunks_to_diff(r[1]))
   endif
-  call s:apply_highlights(s:highlights(info))
+  call conflict3#highlight#apply(s:highlights(info))
 endfunction
 
 " Resolve all microhunks that can be resolved.
 function! conflict3#resolve_all_hunks()
-  call conflict3#clear_highlights()
+  call conflict3#highlight#clear()
   let info = s:get_conflict_info()
   if !info.valid
     return
@@ -74,13 +74,13 @@ function! conflict3#resolve_all_hunks()
     endif
     call s:update_conflict(info, r[0], s:hunks_to_diff(r[1]))
   endwhile
-  call s:apply_highlights(s:highlights(info))
+  call conflict3#highlight#apply(s:highlights(info))
 endfunction
 
 " Shrink the current conflict by moving as much text out as possible. If
 " also_remove is true, delete the conflict when it would be left empty.
 function! conflict3#shrink(also_remove)
-  call conflict3#clear_highlights()
+  call conflict3#highlight#clear()
   let info = s:get_conflict_info()
   if !info.valid
     return
@@ -90,7 +90,7 @@ function! conflict3#shrink(also_remove)
   if len(newdiff) == 0 && a:also_remove
     call s:delete_conflict(info)
   else
-    call s:apply_highlights(s:highlights(info))
+    call conflict3#highlight#apply(s:highlights(info))
   endif
 endfunction
 
@@ -200,49 +200,6 @@ endfunction
 function! s:delete_conflict(info)
   call s:perform_edits([[a:info.local_marker, a:info.end_marker + 1, []]])
   unlet s:saved_conflict_info[string(bufnr('%'))]
-endfunction
-
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Applying highlights
-
-" A highlight is a pair [highlight-group, pos], where pos takes one of the
-" forms accepted by matchaddpos().
-
-augroup Conflict3Highlight
-  autocmd!
-  " conflict3 highlights are logically per-buffer, but vim matches are
-  " per-window. Therefore we clear the highlights whenever a buffer is
-  " hidden.
-  autocmd BufHidden * call conflict3#clear_highlights()
-augroup END
-
-" Dictionary from window id to the list of match ids used by conflict3.
-let s:current_highlights_map = get(s:, 'current_highlights_map', {})
-
-" Remove all the highlights in the current window.
-function! conflict3#clear_highlights()
-  let key = string(win_getid())
-  if !has_key(s:current_highlights_map, key)
-    return
-  endif
-  for m in s:current_highlights_map[key]
-    call matchdelete(m)
-  endfor
-  call remove(s:current_highlights_map, key)
-endfunction
-
-" Apply the given highlights to the current window. Existing highlights will
-" be removed.
-function! s:apply_highlights(his)
-  call conflict3#clear_highlights()
-
-  let key = string(win_getid())
-  let hs = []
-
-  for [grp, pos] in a:his
-    call add(hs, matchaddpos(grp, [pos]))
-  endfor
-  let s:current_highlights_map[key] = hs
 endfunction
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
