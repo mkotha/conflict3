@@ -1,0 +1,81 @@
+Given haskell (a conflict):
+  <<<<<<< HEAD
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        | otherwise = ([], executableFile problemName)
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        | otherwise = ([], executableFile problemName)
+  >>>>>>> 184d9f9... use -rtdopts
+
+Do (take base at base:problemName):
+  /[]\<CR>ww:Conflict3TakeBase\<CR>
+
+Expect (closing parenthesis):
+  <<<<<<< HEAD
+        ghc [flatFile problemName, "-o", executableFile problemName)
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        | otherwise = ([], executableFile problemName)
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        | otherwise = ([], executableFile problemName)
+  >>>>>>> 184d9f9... use -rtdopts
+
+Do (take local at base:problemName):
+  /[]\<CR>ww:Conflict3TakeLocal\<CR>
+
+Expect (closing square brackets):
+  <<<<<<< HEAD
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        | otherwise = ([], executableFile problemName]
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        | otherwise = ([], executableFile problemName]
+  >>>>>>> 184d9f9... use -rtdopts
+
+Do (take remote at base:problemName):
+  /[]\<CR>ww:Conflict3TakeRemote\<CR>
+
+Expect (closing parenthesis):
+  <<<<<<< HEAD
+        ghc [flatFile problemName, "-o", executableFile problemName)
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        | otherwise = ([], executableFile problemName)
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        | otherwise = ([], executableFile problemName)
+  >>>>>>> 184d9f9... use -rtdopts
+

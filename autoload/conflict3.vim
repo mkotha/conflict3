@@ -93,6 +93,41 @@ function! conflict3#shrink(also_remove)
   endif
 endfunction
 
+" Resolve the next microhunk by taking the specified version.
+function! conflict3#take_version(version)
+  let info = s:get_conflict_info()
+  if !info.valid
+    return
+  endif
+  let curpos = getcurpos()
+  let cs = s:make_microhunks(info.diff)
+  call s:annotate_microhunks(cs)
+  let loc = s:find_next_microhunk(cs, curpos[1], curpos[2], info)
+  if len(loc) == 0
+    return
+  endif
+  let [edits, new_hunks] = s:take_version(cs, loc, info, a:version)
+  call s:update_conflict(info, edits, s:hunks_to_diff(new_hunks))
+  call conflict3#highlight#apply(s:highlights(info))
+endfunction
+
+" Versions
+let s:v_local = 0
+let s:v_base = 1
+let s:v_remote = 2
+
+function! conflict3#v_local()
+  return s:v_local
+endfunction
+
+function! conflict3#v_base()
+  return s:v_base
+endfunction
+
+function! conflict3#v_remote()
+  return s:v_remote
+endfunction
+
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Conflict info
 
@@ -359,8 +394,9 @@ function! s:shrink_conflict(info)
   return [edits_top + edits_bottom, diff1[-i:-1]]
 endfunction
 
-" Try to resolve the next nontrivial hunk, searched from the given start_loc.
-" If only_soluble is true, ignore insoluble hunks and keep searching.
+" Try to automatically resolve the next nontrivial hunk, searched from the
+" given start_loc. If only_soluble is true, ignore insoluble hunks and keep
+" searching.
 "
 " If a hunk is resolved, returns [edits, updated_hunks].
 " Otherwise, returns [].
@@ -375,10 +411,6 @@ function! s:try_resolve_hunk(hunks, start_loc, info, only_soluble)
     return [edits , r[1]]
   endif
 endfunction
-
-let s:v_local = 0
-let s:v_base = 1
-let s:v_remote = 2
 
 " Same as try_resolve_hunk, but returns relative edits.
 function! s:try_resolve_hunk_relative(hunks, start_loc,
@@ -459,6 +491,69 @@ function! s:try_resolve_hunk_relative(hunks, start_loc,
   endfor
   " Nothing happend.
   return []
+endfunction
+
+" Resolve the hunk pointed to by loc by taking the specified version.
+"
+" Returns [edits, updated_hunks].
+function! s:take_version(hunks, loc, info, version)
+  let r = s:take_version_relative(a:hunks, a:loc,
+        \ a:info.local, a:info.base, a:info.remote, a:version)
+  if len(r) == 0
+    return []
+  else
+    let edits = s:absolutize_edits(r[0], a:info.local_marker + 1,
+          \ a:info.base_marker + 1, a:info.remote_marker + 1)
+    return [edits , r[1]]
+  endif
+endfunction
+
+" Same as s:take_version, but returns relative edits.
+function! s:take_version_relative(hunks, loc, local, base, remote, version)
+  let hunks = copy(a:hunks)
+  if len(a:loc) == 2
+    let line_hunk = hunks[a:loc[0]]
+    let children = copy(line_hunk.children)
+    let hunk = children[a:loc[1]]
+    if a:version == s:v_local
+      let str = s:subseq(a:local[line_hunk.local_begin], hunk.local_begin, hunk.local_end)
+      let edits = [
+            \ [s:v_base, line_hunk.base_begin, hunk.base_begin, hunk.base_end, str],
+            \ [s:v_remote, line_hunk.remote_begin, hunk.remote_begin, hunk.remote_end, str]]
+    elseif a:version == s:v_base
+      let str = s:subseq(a:base[line_hunk.base_begin], hunk.base_begin, hunk.base_end)
+      let edits = [
+            \ [s:v_local, line_hunk.local_begin, hunk.local_begin, hunk.local_end, str],
+            \ [s:v_remote, line_hunk.remote_begin, hunk.remote_begin, hunk.remote_end, str]]
+    else
+      let str = s:subseq(a:remote[line_hunk.remote_begin], hunk.remote_begin, hunk.remote_end)
+      let edits = [
+            \ [s:v_local, line_hunk.local_begin, hunk.local_begin, hunk.local_end, str],
+            \ [s:v_base, line_hunk.base_begin, hunk.base_begin, hunk.base_end, str]]
+    endif
+    let children[a:loc[1]] = s:make_trivial_hunk(str)
+    let hunks[a:loc[0]] = { 'status': 100, 'children': children }
+  else
+    let hunk = hunks[a:loc[0]]
+    if a:version == s:v_local
+      let lines = s:subseq(a:local, hunk.local_begin, hunk.local_end)
+      let edits = [
+            \ [s:v_base, hunk.base_begin, hunk.base_end, lines],
+            \ [s:v_remote, hunk.remote_begin, hunk.remote_end, lines]]
+    elseif a:version == s:v_base
+      let lines = s:subseq(a:base, hunk.base_begin, hunk.base_end)
+      let edits = [
+            \ [s:v_local, hunk.local_begin, hunk.local_end, lines],
+            \ [s:v_remote, hunk.remote_begin, hunk.remote_end, lines]]
+    else
+      let lines = s:subseq(a:remote, hunk.remote_begin, hunk.remote_end)
+      let edits = [
+            \ [s:v_local, hunk.local_begin, hunk.local_end, lines],
+            \ [s:v_base, hunk.base_begin, hunk.base_end, lines]]
+    endif
+    let hunks[a:loc[0]] = s:make_trivial_hunk(lines)
+  endif
+  return [edits, hunks]
 endfunction
 
 " Turn relative edits into absolute edits.
