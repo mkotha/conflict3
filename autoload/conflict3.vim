@@ -785,7 +785,7 @@ function! s:find_next_microhunk(hunks, line, col, info)
 
   for i in range(len(a:hunks))
     let hunk = a:hunks[i]
-    if start + hunk[end] < a:line || hunk.status == 0
+    if start + hunk[end] <= a:line || hunk.status == 0
       continue
     endif
 
