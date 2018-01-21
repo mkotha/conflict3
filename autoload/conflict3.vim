@@ -236,6 +236,22 @@ function! s:delete_conflict(info)
   unlet s:saved_conflict_info[string(bufnr('%'))]
 endfunction
 
+" Find the version the given line is in. If the given line is in none
+" of the versions, return -1.
+function! s:find_version(info, line)
+  if a:line < a:info.local_marker
+    return -1
+  elseif a:line < a:info.base_marker
+    return s:v_local
+  elseif a:line < a:info.remote_marker
+    return s:v_base
+  elseif a:line < a:info.end_marker
+    return s:v_remote
+  else
+    return -1
+  endif
+endfunction
+
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Computing highlights
 
@@ -864,11 +880,12 @@ endfunction
 "   [i] if the found microhunk is hunks[i].
 "   [i, j] if the found microhunk is hunks[i].children[j].
 function! s:find_next_microhunk(hunks, line, col, info)
-  if a:line < a:info.base_marker
+  let ver = s:find_version(a:info, a:line)
+  if ver == s:v_local
     let begin = 'local_begin'
     let end = 'local_end'
     let start = a:info.local_marker + 1
-  elseif a:line < a:info.remote_marker
+  elseif ver == s:v_base
     let begin = 'base_begin'
     let end = 'base_end'
     let start = a:info.base_marker + 1
