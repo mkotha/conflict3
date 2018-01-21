@@ -893,7 +893,7 @@ function! s:find_next_microhunk(hunks, line, col, info)
 
       for j in range(len(hunk.children))
         let hunk1 = hunk.children[j]
-        if col <= hunk1[begin]
+        if hunk1.status != 0 && col <= hunk1[end]
           return [i, j]
         endif
       endfor

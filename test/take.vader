@@ -79,3 +79,23 @@ Expect (closing parenthesis):
         | otherwise = ([], executableFile problemName)
   >>>>>>> 184d9f9... use -rtdopts
 
+Do (take base at base:otherwise):
+  /otherwise\<CR>:Conflict3TakeBase\<CR>
+
+Expect (otherwise =):
+  <<<<<<< HEAD
+        | otherwise = ([], executableFile problemName]
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        | otherwise = ([], executableFile problemName)
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        | otherwise = ([], executableFile problemName)
+  >>>>>>> 184d9f9... use -rtdopts
