@@ -99,3 +99,24 @@ Expect (otherwise =):
       (profFlags, outFile)
         | otherwise = ([], executableFile problemName)
   >>>>>>> 184d9f9... use -rtdopts
+
+Do (take this at local:ghc):
+  /ghc\<CR>:Conflict3TakeThis\<CR>
+
+Expect (ghc):
+  <<<<<<< HEAD
+        ghc [flatFile problemName, "-o", executableFile problemName]
+  ||||||| parent of 184d9f9... use -rtdopts
+        return $ flatFile problemName
+    ghc $ concat
+      ]
+        ghc [flatFile problemName, "-o", executableFile problemName)
+  =======
+        return $ flatFile problemName
+    ghc $ concat
+      , ["-rtsopts"]
+      ]
+    where
+      (profFlags, outFile)
+        ghc [flatFile problemName, "-o", executableFile problemName)
+  >>>>>>> 184d9f9... use -rtdopts

@@ -111,6 +111,16 @@ function! conflict3#take_version(version)
   call conflict3#highlight#apply(s:highlights(info))
 endfunction
 
+" Resolve the next microhunk by taking the version the cursor is in.
+function! conflict3#take_this_version()
+  let info = s:get_conflict_info()
+  let curpos = getcurpos()
+  let ver = s:find_version(info, curpos[1])
+  if ver != -1
+    call conflict3#take_version(ver)
+  endif
+endfunction
+
 " Versions
 let s:v_local = 0
 let s:v_base = 1

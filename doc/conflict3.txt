@@ -100,6 +100,10 @@ COMMANDS                                                 *conflict3-commands*
                         Resolve the next |microhunk| by taking the local,
                         base, or remote version, respectively.
 
+:Conflict3TakeThis                                       *:Conflict3TakeThis*
+                        Resolve the next |microhunk| by taking the version the
+                        cursor is in.
+
 :Conflict3Shrink[!]                                        *:Conflict3Shrink*
                         Move as many lines of text out of the current conflict
                         as possible. If [!] is used, remove the conflict
